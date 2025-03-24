@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { NetworkLog } from "../hooks/useNetworkTracker";
 import ResizableContainer from "./shared/ResizableContainer";
 import "./NetworkRequestLog.css";
+import { useNetwork } from "../providers/NetworkProvider";
 
 interface NetworkRequestLogProps {
   networkLogs: NetworkLog[];
@@ -20,6 +21,7 @@ const NetworkRequestLog = ({
   handleSelectedRequest,
   selectedNetworkLog,
 }: NetworkRequestLogProps) => {
+  const { getSource } = useNetwork();
   const containerRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<{ [key: string]: number }>(
     ROWS.reduce(
@@ -277,11 +279,12 @@ const NetworkRequestLog = ({
               <tr
                 key={log.requestId}
                 className={selectedNetworkLog?.requestId === log.requestId ? "selected" : ""}
-                onClick={() =>
+                onClick={() => {
+                  getSource(log);
                   handleSelectedRequest(
                     selectedNetworkLog?.requestId === log.requestId ? null : log.requestId
-                  )
-                }>
+                  );
+                }}>
                 {logDetailsConfig.map(({ title, getValue, getClass }) => (
                   <td
                     key={title}

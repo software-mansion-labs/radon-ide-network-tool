@@ -45,7 +45,7 @@ export class DeviceBootError extends Error {
 export class DeviceSession implements Disposable {
   private inspectCallID = 7621;
   private maybeBuildResult: BuildResult | undefined;
-  private debugSession: DebugSession;
+  public debugSession: DebugSession;
   private disposableBuild: DisposableBuild<BuildResult> | undefined;
   private buildManager: BuildManager;
   private deviceSettings: DeviceSettings | undefined;

@@ -20,6 +20,7 @@ import {
 import { getTelemetryReporter } from "../utilities/telemetry";
 import { RenderOutlinesPlugin } from "../plugins/render-outlines/render-outlines-plugin";
 import { RENDER_OUTLINES_PLUGIN_ID } from "../common/RenderOutlines";
+import { DebugSession } from "../debugging/DebugSession";
 
 const TOOLS_SETTINGS_KEY = "tools_settings";
 
@@ -56,7 +57,8 @@ export class ToolsManager implements Disposable {
 
   public constructor(
     public readonly devtools: Devtools,
-    private readonly eventEmitter: EventEmitter
+    private readonly eventEmitter: EventEmitter,
+    private readonly debugSession: DebugSession | undefined
   ) {
     this.toolsSettings = Object.assign({}, extensionContext.workspaceState.get(TOOLS_SETTINGS_KEY));
 
@@ -67,7 +69,7 @@ export class ToolsManager implements Disposable {
     this.plugins.set(reactQueryPlugin.id, reactQueryPlugin);
 
     this.plugins.set(REDUX_PLUGIN_ID, new ReduxDevtoolsPlugin(devtools));
-    this.plugins.set(NETWORK_PLUGIN_ID, new NetworkPlugin(devtools));
+    this.plugins.set(NETWORK_PLUGIN_ID, new NetworkPlugin(devtools, this.debugSession));
     this.plugins.set(RENDER_OUTLINES_PLUGIN_ID, new RenderOutlinesPlugin(devtools));
 
     devtools.addListener(this.devtoolsListener);

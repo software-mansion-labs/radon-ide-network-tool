@@ -82,7 +82,6 @@ export function enableNetworkInspect(devtoolsAgent, payload) {
   devtoolsAgent._bridge.addListener("RNIDE_networkInspectorCDPRequest", (message) => {
     if (message.method === "Network.disable") {
       XHRInterceptor.disableInterception();
-      console.log("XHRInterceptor disabled");
     } else if (message.method === "Network.enable") {
       XHRInterceptor.setSendCallback(sendCallback);
       XHRInterceptor.enableInterception();
@@ -115,6 +114,21 @@ export function enableNetworkInspect(devtoolsAgent, payload) {
     const sendTime = Date.now();
     let ttfb;
 
+    const stackLines = (new Error().stack || "").split("\n").slice(1);
+    const stackRegex = /^\s*at\s+(?:.*\()?(https?:\/\/.*?):(\d+):(\d+)\)?$/;
+
+    const stackTrace = stackLines.reduce((acc, line) => {
+      const match = line.match(stackRegex);
+      if (match) {
+        acc.push({
+          url: match[1],
+          lineNumber: parseInt(match[2], 10),
+          columnNumber: parseInt(match[3], 10),
+        });
+      }
+      return acc;
+    }, []);
+
     xhrsMap.set(requestId, new WeakRefImpl(xhr));
 
     function sendCDPMessage(method, params) {
@@ -129,6 +143,7 @@ export function enableNetworkInspect(devtoolsAgent, payload) {
       loaderId,
       timestamp: sendTime / 1000,
       wallTime: Math.floor(Date.now() / 1000),
+      stackTrace: stackTrace,
       request: {
         url: xhr._url,
         method: xhr._method,
@@ -136,9 +151,6 @@ export function enableNetworkInspect(devtoolsAgent, payload) {
         postData: data,
       },
       type: "XHR",
-      initiator: {
-        type: "script",
-      },
     });
 
     xhr.addEventListener("abort", (event) => {

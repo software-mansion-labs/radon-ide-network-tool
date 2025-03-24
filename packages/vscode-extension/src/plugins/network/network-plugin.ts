@@ -1,7 +1,17 @@
 import http, { Server } from "http";
 import { spawn } from "child_process";
 import path from "path";
-import { commands, Disposable, window } from "vscode";
+import {
+  commands,
+  Disposable,
+  Position,
+  Range,
+  Selection,
+  TextEditorRevealType,
+  ViewColumn,
+  window,
+  workspace,
+} from "vscode";
 import { WebSocketServer, WebSocket } from "ws";
 import { Devtools } from "../../project/devtools";
 import { ToolKey, ToolPlugin } from "../../project/tools";
@@ -9,8 +19,23 @@ import { extensionContext } from "../../utilities/extensionContext";
 
 import { Logger } from "../../Logger";
 import { NetworkDevtoolsWebviewProvider } from "./NetworkDevtoolsWebviewProvider";
+import { DebugSession } from "../../debugging/DebugSession";
 
 export const NETWORK_PLUGIN_ID = "network";
+const EXCLUDED_MODULES = [
+  "node_modules",
+  "webpack",
+  "rn-renderer",
+  "metro",
+  "babel",
+  "core-js",
+  "regenerator-runtime",
+  "react-native",
+  "react",
+  "react-dom",
+  "radon-ide",
+  "scheduler",
+];
 
 function startViteServer(onReady: () => void) {
   const process = spawn("npm", ["run", "watch:network-webview"], {
@@ -58,7 +83,10 @@ class NetworkCDPWebsocketBackend implements Disposable {
   private server: Server;
   private sessions: Set<WebSocket> = new Set();
 
-  constructor(private readonly devtools: Devtools) {
+  constructor(
+    private readonly devtools: Devtools,
+    private readonly debugSession: DebugSession | undefined
+  ) {
     this.server = http.createServer(() => {});
     const wss = new WebSocketServer({ server: this.server });
 
@@ -75,6 +103,72 @@ class NetworkCDPWebsocketBackend implements Disposable {
           ) {
             // forward message to devtools
             this.devtools.send("RNIDE_networkInspectorCDPRequest", payload);
+          } else if (payload.method === "Network.Initiator") {
+            (async () => {
+              for (const e of payload.params.stackTrace) {
+                if (!this.debugSession) {
+                  Logger.error("Network.Initiator: DebugSession is not available");
+                  return;
+                }
+
+                const result = await this.debugSession.getOriginalSource(
+                  e.url,
+                  e.lineNumber,
+                  e.columnNumber
+                );
+
+                // Check if the sourceURL is pointing to file written by user
+                if (
+                  result &&
+                  !EXCLUDED_MODULES.some((excluded) => result.sourceURL.includes(excluded))
+                ) {
+                  try {
+                    const document = await workspace.openTextDocument(result.sourceURL);
+                    const editor = await window.showTextDocument(document, {
+                      viewColumn: ViewColumn.Active,
+                      preserveFocus: false,
+                    });
+
+                    const position = new Position(
+                      result.lineNumber1Based - 1,
+                      result.columnNumber0Based
+                    );
+
+                    editor.revealRange(
+                      new Range(position, position),
+                      TextEditorRevealType.InCenter
+                    );
+                    editor.selection = new Selection(position, position);
+
+                    const highlightRange = new Range(
+                      position.line,
+                      0,
+                      position.line,
+                      document.lineAt(position.line).text.length
+                    );
+                    const decorationType = window.createTextEditorDecorationType({
+                      backgroundColor: "rgba(255, 255, 0, 0.3)",
+                    });
+
+                    editor.setDecorations(decorationType, [highlightRange]);
+
+                    const disposable = window.onDidChangeTextEditorSelection((event) => {
+                      if (event.textEditor === editor) {
+                        const isCursorOnHighlightedLine = event.selections.some(
+                          (selection) => selection.active.line === position.line
+                        );
+                        if (!isCursorOnHighlightedLine) {
+                          editor.setDecorations(decorationType, []);
+                          disposable.dispose();
+                        }
+                      }
+                    });
+
+                    break;
+                  } catch (err) {}
+                }
+              }
+            })();
           } else if (payload.id) {
             // send empty response otherwise
             const response = { id: payload.id, result: {} };
@@ -114,8 +208,6 @@ class NetworkCDPWebsocketBackend implements Disposable {
   }
 
   public broadcast(cdpMessage: string) {
-    Logger.debug("Broadcasting CDP message:", cdpMessage);
-
     this.sessions.forEach((ws) => {
       ws.send(cdpMessage);
     });
@@ -135,8 +227,11 @@ export class NetworkPlugin implements ToolPlugin {
 
   private readonly websocketBackend;
 
-  constructor(private readonly devtools: Devtools) {
-    this.websocketBackend = new NetworkCDPWebsocketBackend(devtools);
+  constructor(
+    private readonly devtools: Devtools,
+    private readonly debugSession: DebugSession | undefined
+  ) {
+    this.websocketBackend = new NetworkCDPWebsocketBackend(devtools, this.debugSession);
     initialize();
   }
 

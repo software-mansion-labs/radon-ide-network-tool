@@ -303,6 +303,15 @@ export class ProxyDebugAdapter extends DebugSession {
       case "RNIDE_ping":
         response.body.result = await this.ping();
         break;
+      case "RNIDE_getOriginalSource":
+        response.body = {
+          ...this.sourceMapRegistry.findOriginalPosition(
+            args.fileName,
+            args.line0Based,
+            args.column0Based
+          ),
+        };
+        break;
     }
     this.sendResponse(response);
   }

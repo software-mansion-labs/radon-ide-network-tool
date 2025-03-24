@@ -120,9 +120,14 @@ export class Project
     this.trySelectingInitialDevice();
     this.deviceManager.addListener("deviceRemoved", this.removeDeviceListener);
     this.isCachedBuildStale = false;
-    this.toolsManager = new ToolsManager(this.devtools, this.eventEmitter);
+    this.toolsManager = new ToolsManager(
+      this.devtools,
+      this.eventEmitter,
+      this.deviceSession?.debugSession
+    );
 
     this.disposables.push(this.toolsManager);
+
     this.disposables.push(
       watchProjectFiles(() => {
         this.checkIfNativeChanged();
@@ -628,8 +633,14 @@ export class Project
       const oldToolsManager = this.toolsManager;
       this.devtools = new Devtools();
       this.metro = new Metro(this.devtools, this);
-      this.toolsManager = new ToolsManager(this.devtools, this.eventEmitter);
-      oldToolsManager.dispose();
+      this.toolsManager = new ToolsManager(
+        this.devtools,
+        this.eventEmitter,
+        this.deviceSession?.debugSession
+      );
+      if (oldToolsManager) {
+        oldToolsManager.dispose();
+      }
       oldDevtools.dispose();
       oldMetro.dispose();
     }
@@ -960,6 +971,14 @@ export class Project
         this
       );
       this.deviceSession = newDeviceSession;
+
+      this.toolsManager = new ToolsManager(
+        this.devtools,
+        this.eventEmitter,
+        this.deviceSession?.debugSession
+      );
+
+      this.disposables.push(this.toolsManager);
 
       const previewURL = await newDeviceSession.start(this.deviceSettings, this.appRootFolder, {
         cleanBuild: forceCleanBuild,

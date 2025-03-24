@@ -261,6 +261,22 @@ export class DebugSession implements Disposable {
     throw new Error("current ws target is still");
   }
 
+  public async getOriginalSource(
+    fileName: string,
+    line0Based: number,
+    column0Based: number
+  ): Promise<{ sourceURL: string; lineNumber1Based: number; columnNumber0Based: number }> {
+    if (!this.jsDebugSession) {
+      throw new Error("JS Debug session not available");
+    }
+
+    return await this.jsDebugSession.customRequest("RNIDE_getOriginalSource", {
+      fileName,
+      line0Based,
+      column0Based,
+    });
+  }
+
   public async pingJsDebugSessionWithTimeout() {
     if (!this.jsDebugSession) {
       return false;

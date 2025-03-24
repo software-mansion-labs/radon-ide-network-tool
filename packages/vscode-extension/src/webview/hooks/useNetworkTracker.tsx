@@ -37,6 +37,12 @@ type NetworkState =
   | "Network.loadingFinished"
   | "Network.loadingFailed";
 
+export interface StackTrace {
+  url: string;
+  lineNumber: number;
+  columnNumber: number;
+}
+
 export interface NetworkLog {
   currentState: NetworkState;
   requestId: string;
@@ -45,7 +51,7 @@ export interface NetworkLog {
   encodedDataLength?: number;
   type?: string;
   timeline: TimelineEvent;
-  initiator?: any;
+  stackTrace?: StackTrace[];
 }
 
 export interface WebSocketMessage {
@@ -59,7 +65,7 @@ export interface WebSocketMessage {
     ttfb?: number;
     wallTime: number;
     type?: string;
-    initiator?: NetworkRequestInitiator;
+    stackTrace?: StackTrace[];
   };
 }
 
@@ -131,7 +137,7 @@ const useNetworkTracker = (): NetworkTracker => {
               currentState: method,
               request: params.request || existingLog.request,
               response: params.response || existingLog.response,
-              initiator: params.initiator || existingLog.initiator,
+              stackTrace: params.stackTrace || existingLog.stackTrace,
               timeline: {
                 timestamp: params.timestamp,
                 wallTime: params.wallTime,
@@ -149,7 +155,7 @@ const useNetworkTracker = (): NetworkTracker => {
               response: params.response,
               encodedDataLength: params.encodedDataLength,
               type: params?.type,
-              initiator: params.initiator,
+              stackTrace: params.stackTrace,
               timeline: {
                 timestamp: params.timestamp,
                 wallTime: params.wallTime,
@@ -225,7 +231,7 @@ const useNetworkTracker = (): NetworkTracker => {
       JSON.stringify({
         method: "Network.Initiator",
         params: {
-          ...networkLog.initiator,
+          stackTrace: networkLog.stackTrace,
         },
       })
     );
