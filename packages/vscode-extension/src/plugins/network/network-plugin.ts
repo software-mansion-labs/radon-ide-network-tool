@@ -146,11 +146,12 @@ class NetworkCDPWebsocketBackend implements Disposable {
                       position.line,
                       document.lineAt(position.line).text.length
                     );
-                    const decorationType = window.createTextEditorDecorationType({
-                      backgroundColor: "rgba(255, 255, 0, 0.3)",
+
+                    const highlightDecorations = window.createTextEditorDecorationType({
+                      backgroundColor: "var(--vscode-focusBorder)",
                     });
 
-                    editor.setDecorations(decorationType, [highlightRange]);
+                    editor.setDecorations(highlightDecorations, [highlightRange]);
 
                     const disposable = window.onDidChangeTextEditorSelection((event) => {
                       if (event.textEditor === editor) {
@@ -158,7 +159,7 @@ class NetworkCDPWebsocketBackend implements Disposable {
                           (selection) => selection.active.line === position.line
                         );
                         if (!isCursorOnHighlightedLine) {
-                          editor.setDecorations(decorationType, []);
+                          editor.setDecorations(highlightDecorations, []);
                           disposable.dispose();
                         }
                       }

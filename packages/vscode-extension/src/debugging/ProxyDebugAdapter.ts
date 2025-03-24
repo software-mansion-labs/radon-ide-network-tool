@@ -286,6 +286,32 @@ export class ProxyDebugAdapter extends DebugSession {
     this.sendEvent(new Event("RNIDE_profilingCPUStopped", { filePath }));
   }
 
+  protected async sourceRequest(
+    response: DebugProtocol.Response & {
+      body: {
+        sourceURL: string;
+        lineNumber1Based: number;
+        columnNumber0Based: number;
+        scriptURL: string;
+      };
+    },
+    args: DebugProtocol.SourceArguments & {
+      fileName: string;
+      line0Based: number;
+      column0Based: number;
+    },
+    request?: DebugProtocol.Request
+  ) {
+    response.body = {
+      ...this.sourceMapRegistry.findOriginalPosition(
+        args.fileName,
+        args.line0Based,
+        args.column0Based
+      ),
+    };
+    this.sendResponse(response);
+  }
+
   protected async customRequest(
     command: string,
     response: DebugProtocol.Response,
@@ -302,15 +328,6 @@ export class ProxyDebugAdapter extends DebugSession {
         break;
       case "RNIDE_ping":
         response.body.result = await this.ping();
-        break;
-      case "RNIDE_getOriginalSource":
-        response.body = {
-          ...this.sourceMapRegistry.findOriginalPosition(
-            args.fileName,
-            args.line0Based,
-            args.column0Based
-          ),
-        };
         break;
     }
     this.sendResponse(response);

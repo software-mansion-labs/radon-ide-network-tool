@@ -270,7 +270,7 @@ export class DebugSession implements Disposable {
       throw new Error("JS Debug session not available");
     }
 
-    return await this.jsDebugSession.customRequest("RNIDE_getOriginalSource", {
+    return await this.jsDebugSession.customRequest("source", {
       fileName,
       line0Based,
       column0Based,
