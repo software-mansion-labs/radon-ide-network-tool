@@ -1,7 +1,8 @@
+import classNames from "classnames";
 import IconButton from "./shared/IconButton";
 import { useNetwork } from "../providers/NetworkProvider";
 
-const NetworkBar = () => {
+function NetworkBar() {
   const { isRecording, toggleRecording, clearActivity, toggleShowSearch, toggleShowChart } =
     useNetwork();
 
@@ -17,7 +18,7 @@ const NetworkBar = () => {
         }}>
         <span
           style={{ color: isRecording ? "var(--vscode-charts-red)" : "var(--swm-default-text)" }}
-          className={`codicon ${isRecording ? "codicon-record" : "codicon-stop-circle"}`}
+          className={classNames("codicon", isRecording ? "codicon-record" : "codicon-stop-circle")}
         />
       </IconButton>
       <IconButton
@@ -46,6 +47,6 @@ const NetworkBar = () => {
       </IconButton>
     </>
   );
-};
+}
 
 export default NetworkBar;

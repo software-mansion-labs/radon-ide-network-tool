@@ -1,4 +1,4 @@
-import { createContext, PropsWithChildren, useContext, useMemo, useState } from "react";
+import { createContext, PropsWithChildren, useContext, useMemo, useReducer, useState } from "react";
 import useNetworkTracker, {
   NetworkTracker,
   networkTrackerInitialState,
@@ -15,10 +15,10 @@ interface Filters {
 }
 
 interface NetworkProviderProps extends NetworkTracker {
+  unfilteredNetworkLogs: NetworkTracker["networkLogs"];
   isRecording: boolean;
   showSearch: boolean;
   filters: Filters;
-  isClearing: boolean;
   isScrolling: boolean;
   showChart: boolean;
   toggleRecording: () => void;
@@ -31,13 +31,13 @@ interface NetworkProviderProps extends NetworkTracker {
 
 const NetworkContext = createContext<NetworkProviderProps>({
   ...networkTrackerInitialState,
+  unfilteredNetworkLogs: [],
   isRecording: true,
   showSearch: false,
   filters: {
     url: undefined,
     timestampRange: undefined,
   },
-  isClearing: false,
   isScrolling: false,
   showChart: true,
   toggleRecording: () => {},
@@ -51,59 +51,49 @@ const NetworkContext = createContext<NetworkProviderProps>({
 export default function NetworkProvider({ children }: PropsWithChildren) {
   const networkTracker = useNetworkTracker();
 
-  const [showChart, setShowChart] = useState(true);
+  const [showChart, toggleShowChart] = useReducer((state) => !state, true);
+  const [showSearch, toggleShowSearch] = useReducer((state) => !state, false);
+  const [isScrolling, toggleScrolling] = useReducer((state) => !state, false);
+
   const [isRecording, setIsRecording] = useState(true);
-  const [isClearing, setIsClearing] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
   const [filters, setFilters] = useState<Filters>({
     timestampRange: undefined,
     url: undefined,
   });
 
-  function toggleRecording() {
-    setIsRecording((prev) => !prev);
-    networkTracker.toggleNetwork(isRecording);
-  }
-
-  function toggleShowSearch() {
-    setShowSearch((prev) => !prev);
-  }
-
-  function clearActivity() {
-    setIsClearing((prev) => prev);
+  const clearActivity = () => {
     networkTracker.clearLogs();
-    setIsClearing(false);
-  }
+  };
 
-  function toggleScrolling() {
-    setIsScrolling((prev) => !prev);
-  }
-
-  function toggleShowChart() {
-    setShowChart((prev) => !prev);
-  }
+  const toggleRecording = () => {
+    setIsRecording((prev) => {
+      networkTracker.toggleNetwork(prev);
+      return !prev;
+    });
+  };
 
   const networkLogs = useMemo(() => {
-    const filteredLogs = networkTracker.networkLogs.filter((log) => {
-      const matchesUrl = filters.url ? log.request?.url.includes(filters.url) : true;
-      const matchesTimestampRange = filters.timestampRange
-        ? log.timeline.timestamp >= filters.timestampRange.start &&
-          log.timeline.timestamp <= filters.timestampRange.end
-        : true;
+    return networkTracker.networkLogs.filter((log) => {
+      const { url, timestampRange } = filters;
+
+      const matchesUrl = !url || log.request?.url.includes(url);
+      const matchesTimestampRange =
+        !timestampRange ||
+        (log.timeline.timestamp >= timestampRange.start &&
+          log.timeline.timestamp <= timestampRange.end);
+
       return matchesUrl && matchesTimestampRange;
     });
-    return filteredLogs;
   }, [networkTracker.networkLogs, filters]);
 
   const contextValue = useMemo(() => {
     return {
       ...networkTracker,
+      unfilteredNetworkLogs: networkTracker.networkLogs,
       networkLogs,
       isRecording,
       filters,
       showSearch,
-      isClearing,
       isScrolling,
       showChart,
       toggleRecording,
@@ -113,7 +103,7 @@ export default function NetworkProvider({ children }: PropsWithChildren) {
       toggleScrolling,
       toggleShowChart,
     };
-  }, [isRecording, filters, showSearch, isClearing, isScrolling, showChart, networkLogs]);
+  }, [isRecording, filters, showSearch, isScrolling, showChart, networkLogs]);
 
   return <NetworkContext.Provider value={contextValue}>{children}</NetworkContext.Provider>;
 }

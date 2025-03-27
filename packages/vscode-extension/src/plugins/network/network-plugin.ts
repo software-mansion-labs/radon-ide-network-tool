@@ -4,6 +4,7 @@ import path from "path";
 import {
   commands,
   Disposable,
+  ExtensionMode,
   Position,
   Range,
   Selection,
@@ -37,46 +38,52 @@ const EXCLUDED_MODULES = [
   "scheduler",
 ];
 
-function startViteServer(onReady: () => void) {
-  const process = spawn("npm", ["run", "watch:network-webview"], {
-    cwd: path.join(__dirname, ".."),
-    shell: true,
-  });
+function startViteServer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const process = spawn("npm", ["run", "watch:network-webview"], {
+      cwd: path.join(__dirname, ".."),
+      shell: true,
+    });
 
-  process.stdout.on("data", (data) => {
-    const output = data.toString();
+    process.stdout.on("data", (data) => {
+      const output = data.toString();
 
-    if (output.includes("ready in") || output.includes("Local:")) {
-      onReady();
-    }
-  });
+      if (output.includes("ready in") || output.includes("Local:")) {
+        resolve();
+      }
+    });
 
-  process.stderr.on("data", (data) => {
-    Logger.error("ERROR:", data.toString());
-  });
+    process.stderr.on("data", (data) => {
+      Logger.error("ERROR:", data.toString());
+    });
 
-  process.on("close", (code) => {
-    Logger.debug(`Process exited with code ${code}`);
+    process.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Process exited with code ${code}`));
+      } else {
+        Logger.debug(`Process exited with code ${code}`);
+      }
+    });
   });
 }
 
-let initialzed = false;
-function initialize() {
-  if (initialzed) {
+let initialized = false;
+async function initialize() {
+  if (initialized) {
     return;
   }
   Logger.debug("Initilizing Network tool");
-
-  startViteServer(() => {
-    initialzed = true;
-    extensionContext.subscriptions.push(
-      window.registerWebviewViewProvider(
-        `RNIDE.Tool.Network.view`,
-        new NetworkDevtoolsWebviewProvider(extensionContext),
-        { webviewOptions: { retainContextWhenHidden: true } }
-      )
-    );
-  });
+  if (extensionContext.extensionMode === ExtensionMode.Development) {
+    await startViteServer();
+  }
+  initialized = true;
+  extensionContext.subscriptions.push(
+    window.registerWebviewViewProvider(
+      `RNIDE.Tool.Network.view`,
+      new NetworkDevtoolsWebviewProvider(extensionContext),
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
 }
 
 class NetworkCDPWebsocketBackend implements Disposable {
@@ -96,11 +103,7 @@ class NetworkCDPWebsocketBackend implements Disposable {
       ws.on("message", (message) => {
         try {
           const payload = JSON.parse(message.toString());
-          if (
-            ["Network.getResponseBody", "Network.enable", "Network.disable"].includes(
-              payload.method
-            )
-          ) {
+          if (payload.method.startsWith("Network.")) {
             // forward message to devtools
             this.devtools.send("RNIDE_networkInspectorCDPRequest", payload);
           } else if (payload.method === "Network.Initiator") {

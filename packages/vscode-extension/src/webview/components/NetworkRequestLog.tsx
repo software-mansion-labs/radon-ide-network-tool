@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useLayoutEffect, useRef, useCallback } from "react";
 import { NetworkLog } from "../hooks/useNetworkTracker";
 import ResizableContainer from "./shared/ResizableContainer";
 import "./NetworkRequestLog.css";
@@ -35,7 +35,7 @@ const NetworkRequestLog = ({
   const [lastDetailsWidth, setLastDetailsWidth] = useState(0);
   const [initialRowWidth, setInitialRowWidth] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const handleResize = () => {
       if (!containerRef.current) {
         return;
@@ -55,7 +55,7 @@ const NetworkRequestLog = ({
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setColumnWidths(
       ROWS.reduce(
         (acc, title) => ({
@@ -67,7 +67,7 @@ const NetworkRequestLog = ({
     );
   }, [initialRowWidth]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (detailsWidth !== lastDetailsWidth) {
       const isIncreasing = detailsWidth > lastDetailsWidth;
 
@@ -92,7 +92,7 @@ const NetworkRequestLog = ({
     }
   }, [detailsWidth, lastDetailsWidth]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return;
@@ -109,7 +109,7 @@ const NetworkRequestLog = ({
     }
   }, [networkLogs, selectedNetworkLog]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return;
@@ -265,7 +265,7 @@ const NetworkRequestLog = ({
                   }}>
                   <ResizableContainer
                     side="right"
-                    containerWidth={columnWidths[title]}
+                    containerSize={columnWidths[title]}
                     setContainerWidth={(width) => handleResize(title, width)}
                     isColumn={true}>
                     <p className="table-paragraph">{title}</p>
